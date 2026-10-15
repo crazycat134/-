@@ -24,27 +24,14 @@ public sealed class InterviewAssistantService
     public bool Muted { get; set; }
 
     private const string InterviewSystemPrompt =
-"你是面试辅导教练，候选人正在日本IT公司面试。面试官说日语，你用中文给提示。\n" +
-"候选人背景：大阪大学硕士（2026年3月毕业），专业基础一般但长期规划执行力强；日本家电量贩店兼职（会员注册当日门店第一）；自营二手商品EC；自学API和生成式AI做出品辅助系统。\n\n" +
-"8类故事核心素材：\n" +
-"1.主动性：备考大学院时发现过去问缺详解，主动组6人学习小组，最终全员考上\n" +
-"2.沟通：家电量贩店接待顾客，根据顾客关注点调整介绍方式，会员注册当日门店第一\n" +
-"3.学习能力：二手EC业务中自学API+生成式AI，把商品信息整理/价格参考/文案生成连成流程，主要功能已跑通（不夸大量化成果）\n" +
-"4.创新：不只用AI写文案，而是把信息获取/商品检查/价格判断/出品准备连成完整流程，保留人工确认\n" +
-"5.问题分析：二手商品定价，综合历史成交价/商品状态/上架后关注度调整，无系统统计但有复盘意识\n" +
-"6.执行力/多任务：从薄弱基础出发，兼顾打工同时备考英语/数学/专业/研究计划，每天读论文，最终考入阪大并完成硕士\n" +
-"7.失败反思：日语小组讨论时因紧张+没提前整理思路，无法及时发言；改进=提前写观点、结论先行、注意倾听找补充时机\n" +
-"8.责任心：长期目标下分类任务、制定计划、持续推进直到完成\n\n" +
-"规则：\n" +
-"- 面试官说完后，判断他在问哪类问题（主动性/沟通/学习/创新/分析/执行力/失败/责任心）\n" +
-"- 从对应故事提取2-3个关键词和1句话术\n" +
-"- 极短：50字以内\n" +
-"- 如果面试官在追问细节，结合上一轮对话递进回答\n" +
-"- 不要寒暄，直接输出\n\n" +
-"格式：\n" +
-"💡 [用哪个故事 + 核心关键词]\n" +
-"🗣️ [中文话术提示，候选人可以直接说的要点]\n\n" +
-"如果没听清或问题模糊，输出\"\"。";
+"你是日语面试提示助手。根据面试官问题，快速输出3个回答要点和1句开场。\n" +
+"候选人背景：大阪大学硕士，家电量贩店兼职（会员注册当日门店第一），二手EC运营，自学API+AI做出品系统。\n" +
+"8类故事：1.组6人学习小组 2.按顾客需求调整沟通 3.自学API/AI做出品流程 4.流程整合创新 5.二手商品定价分析 6.多任务备考阪大 7.日语讨论紧张后改进 8.长期执行力\n" +
+"直接输出，不要寒暄：\n" +
+"🎯 [问题类型，如：主动性/沟通/学习能力]\n" +
+"💡 1.[要点1] 2.[要点2] 3.[要点3]\n" +
+"🗣️ [一句日语开场，可直接说]\n" +
+"总字数60字以内。";
 
     public InterviewAssistantService(
         HttpClient http,
@@ -125,7 +112,7 @@ public sealed class InterviewAssistantService
         string hint;
         try
         {
-            hint = await GenerateHintAsync(ct);
+            hint = await GenerateHintAsync(transcribed, ct);
             lock (_lock) { _history.Add(new { role = "assistant", content = hint }); }
         }
         catch (Exception ex)
@@ -173,8 +160,12 @@ public sealed class InterviewAssistantService
         return doc.RootElement.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
     }
 
-    private async Task<string> GenerateHintAsync(CancellationToken ct)
+    private long _questionId;
+
+    private async Task<string> GenerateHintAsync(string transcribed, CancellationToken ct)
     {
+        var qid = Interlocked.Increment(ref _questionId);
+
         List<object> messages;
         lock (_lock)
         {
@@ -186,8 +177,9 @@ public sealed class InterviewAssistantService
         {
             model = _llmModel,
             messages,
-            max_tokens = 200,
-            temperature = 0.3
+            max_tokens = 150,
+            temperature = 0.2,
+            stream = true
         };
 
         using var content = new StringContent(
@@ -199,16 +191,44 @@ public sealed class InterviewAssistantService
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _llmApiKey);
 
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(25));
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
-        using var resp = await _http.SendAsync(req, cts.Token);
-        var body = await resp.Content.ReadAsStringAsync(cts.Token);
-        if (!resp.IsSuccessStatusCode)
-            throw new InvalidOperationException($"LLM {(int)resp.StatusCode}: {body}");
 
-        using var doc = JsonDocument.Parse(body);
-        return doc.RootElement.GetProperty("choices")[0]
-            .GetProperty("message").GetProperty("content").GetString() ?? "";
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var err = await resp.Content.ReadAsStringAsync(cts.Token);
+            throw new InvalidOperationException($"LLM {(int)resp.StatusCode}: {err}");
+        }
+
+        var sb = new StringBuilder();
+        using var stream = await resp.Content.ReadAsStreamAsync(cts.Token);
+        using var reader = new StreamReader(stream);
+
+        while (!reader.EndOfStream)
+        {
+            var line = await reader.ReadLineAsync(cts.Token);
+            if (string.IsNullOrEmpty(line) || !line.StartsWith("data: ")) continue;
+            var data = line[6..];
+            if (data == "[DONE]") break;
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                var delta = doc.RootElement.GetProperty("choices")[0]
+                    .GetProperty("delta").GetProperty("content").GetString();
+                if (!string.IsNullOrEmpty(delta))
+                {
+                    sb.Append(delta);
+                    lock (_lock)
+                    {
+                        _latestResult = new InterviewResult(transcribed, sb.ToString(), $"streaming q{qid}");
+                    }
+                }
+            }
+            catch { }
+        }
+
+        return sb.ToString();
     }
 }
 
