@@ -46,14 +46,6 @@ public static class ServerHost
         // Interview assistant LLM: deepseek-reasoner (top tier reasoning)
         var llmModel = Environment.GetEnvironmentVariable("LLM_MODEL") ?? "deepseek-reasoner";
 
-        // Whisper ASR: disabled (no OpenAI key). Set WHISPER_API_KEY to re-enable.
-        var whisperKey = Environment.GetEnvironmentVariable("WHISPER_API_KEY") ?? "";
-        var whisperBase = Environment.GetEnvironmentVariable("WHISPER_BASE_URL")
-                       ?? "https://api.deepseek.com/v1";
-        var whisperModel = Environment.GetEnvironmentVariable("WHISPER_MODEL") ?? "whisper-1";
-        builder.Services.AddSingleton(new InterviewAssistantService(
-            new HttpClient(), deepseekKey, llmModel, deepseekBase, whisperKey, whisperBase, whisperModel));
-
         var app = builder.Build();
 
         // UseDefaultFiles must come BEFORE UseStaticFiles so "/" serves index.html
@@ -61,39 +53,6 @@ public static class ServerHost
         app.UseStaticFiles();
         app.UseSessionAuth();
         app.MapFrameEndpoints();
-
-        // Interview endpoints
-        app.MapPost("/api/v1/interview/transcribe", async (HttpRequest request, InterviewAssistantService svc) =>
-        {
-            if (!svc.IsConfigured)
-                return Results.Json(new { error = "未配置 WHISPER_API_KEY 或 LLM_API_KEY" }, statusCode: 500);
-            var form = await request.ReadFormAsync();
-            var file = form.Files.GetFile("audio");
-            if (file is null)
-                return Results.Json(new { error = "missing audio file" }, statusCode: 400);
-            using var stream = file.OpenReadStream();
-            var result = await svc.ProcessAudioAsync(stream, file.ContentType, file.FileName);
-            return Results.Json(result);
-        });
-
-        // Phone polls this to get the latest hint from desktop-captured system audio
-        app.MapGet("/api/v1/interview/latest", (InterviewAssistantService svc) =>
-        {
-            var r = svc.GetLatest();
-            return Results.Json(new { transcribed = r.Transcribed, hint = r.Hint, status = r.Status });
-        });
-
-        app.MapPost("/api/v1/interview/reset", (InterviewAssistantService svc) =>
-        {
-            svc.Reset();
-            return Results.Ok(new { reset = true });
-        });
-
-        app.MapPost("/api/v1/interview/mute", (InterviewAssistantService svc) =>
-        {
-            svc.Muted = !svc.Muted;
-            return Results.Json(new { muted = svc.Muted });
-        });
 
         return app;
     }

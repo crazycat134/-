@@ -44,19 +44,6 @@ public partial class MainWindow : Window
             _app = ServerHost.Build(Array.Empty<string>(), url, _session);
             await _app.StartAsync();
 
-            // Start system audio capture for interview mode
-            var interviewSvc = _app.Services.GetService(typeof(InterviewAssistantService)) as InterviewAssistantService;
-            if (interviewSvc != null)
-            {
-                _audioCapture = new SystemAudioCaptureService(interviewSvc);
-                _audioCapture.Start();
-                Console.WriteLine("[Main] Audio capture started");
-            }
-            else
-            {
-                Console.WriteLine("[Main] WARNING: InterviewAssistantService not found in DI");
-            }
-
             var lanIp = GetLanIpAddress();
             var pairingUrl = $"http://{lanIp}:{_serverPort}/?token={_session.Token}";
             UrlBox.Text = pairingUrl;
