@@ -31,6 +31,11 @@
         .status.on { background: rgba(63,185,80,0.15); color: var(--green); }
         .status.off { background: rgba(139,148,158,0.15); color: var(--sub); }
         .status.muted { background: rgba(210,153,34,0.15); color: var(--orange); }
+        .vol-dot {
+            display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+            background: #444; transition: all 0.2s; margin-right: 6px; vertical-align: middle;
+        }
+        .vol-dot.active { background: var(--green); box-shadow: 0 0 8px var(--green); }
 
         .hint-area { flex: 1; padding: 16px 14px; overflow-y: auto; }
         .hint-card {
@@ -61,7 +66,7 @@
     <div class="topbar">
         <a href="/">← 题目识别</a>
         <span style="font-size:15px;font-weight:600">🎤 面试辅助</span>
-        <span id="recStatus" class="status on">监听中</span>
+        <span id="recStatus" class="status on"><span id="volDot" class="vol-dot"></span>监听中</span>
     </div>
 
     <div id="hintArea" class="hint-area">
@@ -89,6 +94,9 @@
                 headers: token ? { 'Authorization': 'Bearer ' + token } : {}
             });
             const data = await res.json();
+            // Volume indicator: threshold 800 out of 32767
+            const dot = document.getElementById('volDot');
+            if (dot) dot.classList.toggle('active', (data.volume || 0) > 800);
             if (data.hint && data.hint !== lastHint) {
                 lastHint = data.hint;
                 const card = document.createElement('div');

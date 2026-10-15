@@ -128,10 +128,18 @@ public sealed class InterviewAssistantService
     }
 
     private InterviewResult? _latestResult;
+    private int _latestVolume;
+
+    /// <summary>Called by audio capture to update current mic RMS volume (0-32767).</summary>
+    public void SetVolume(int rms) => _latestVolume = rms;
 
     public InterviewResult GetLatest()
     {
-        lock (_lock) { return _latestResult ?? new InterviewResult("", "", ""); }
+        lock (_lock)
+        {
+            var r = _latestResult ?? new InterviewResult("", "", "");
+            return r with { Volume = _latestVolume };
+        }
     }
 
     private async Task<string> TranscribeBytesAsync(byte[] audioBytes, string contentType, string fileName, CancellationToken ct)
@@ -232,4 +240,7 @@ public sealed class InterviewAssistantService
     }
 }
 
-public record InterviewResult(string Transcribed, string Hint, string Status);
+public record InterviewResult(string Transcribed, string Hint, string Status, int Volume)
+{
+    public InterviewResult(string t, string h, string s) : this(t, h, s, 0) { }
+}

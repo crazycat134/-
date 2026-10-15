@@ -115,10 +115,12 @@ public sealed class SystemAudioCaptureService : IDisposable
 
         long dataStart = outMs.Position;
 
-        // Convert float samples to 16-bit, downmix stereo to mono, downsample
+        // Convert float samples to 16-bit, downmix stereo to mono, downsample.
+        // Also compute RMS volume for UI feedback.
+        double sumSq = 0;
+        int sampleN = 0;
         for (int i = 0; i < sampleCount; i += step * srcChannels)
         {
-            // Average channels
             float sum = 0;
             for (int ch = 0; ch < srcChannels && i + ch < sampleCount; ch++)
             {
@@ -127,7 +129,13 @@ public sealed class SystemAudioCaptureService : IDisposable
             float mono = sum / srcChannels;
             short s = (short)(mono * 32767);
             bw.Write(s);
+            sumSq += mono * mono;
+            sampleN++;
         }
+
+        // RMS volume (0-1 float, map to 0-32767 for UI)
+        float rms = sampleN > 0 ? (float)Math.Sqrt(sumSq / sampleN) : 0;
+        _assistant.SetVolume((int)(rms * 32767));
 
         long dataSize = outMs.Position - dataStart;
         outMs.Position = 4;
