@@ -32,3 +32,6 @@ logs/
 appsettings.*.local.json
 .env
 .env.*
+
+# Test logs
+run_*.txt
