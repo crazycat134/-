@@ -141,11 +141,24 @@ public static class FrameEndpoints
 
             try
             {
-                // Stitch up to 3 recent frames vertically for multi-screen questions
                 var jpegs = frames.Select(f => f.bytes).ToList();
                 var stitched = ImageStitcher.StitchVertical(jpegs);
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 var answer = await llm.AnalyzeImageAsync(stitched);
+                sw.Stop();
                 var last = frames[frames.Count - 1];
+
+                // Log to file
+                var logEntry = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    frameId = last.meta.FrameId,
+                    elapsedMs = sw.ElapsedMilliseconds,
+                    answer
+                });
+                System.IO.File.AppendAllText("analyze_history.jsonl", logEntry + "\n");
+                Console.WriteLine($"[Analyze] Done in {sw.ElapsedMilliseconds}ms, frame={last.meta.FrameId}");
+
                 return Results.Ok(new { answer, frameCount = frames.Count, frameId = last.meta.FrameId });
             }
             catch (Exception ex)
