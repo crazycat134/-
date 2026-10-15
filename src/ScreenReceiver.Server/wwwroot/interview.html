@@ -95,9 +95,10 @@ body {
 
 <div id="statusLine" class="status-line">🎙️ 等待面试官发言...</div>
 
-<div id="hintArea" class="hint-area">
-  <div class="placeholder">电脑正在捕获系统声音<br>面试官说话后自动出提示<br><br><small>音量条跳动 = 正在收音</small></div>
+<div id="subtitleBar" style="padding:0 14px 8px; font-size:18px; line-height:1.5; color:var(--text); min-height:44px;">
 </div>
+
+<div id="hintArea" class="hint-area">
 
 <div class="bottom">
   <div class="btn-row">
@@ -140,6 +141,12 @@ async function poll() {
     } else {
       statusLine.textContent = '🎙️ 等待面试官发言...';
       statusLine.className = 'status-line';
+    }
+
+    // Subtitle: show latest transcribed text (any language)
+    const sub = document.getElementById('subtitleBar');
+    if (data.transcribed && data.transcribed !== sub.textContent) {
+      sub.textContent = '💬 ' + data.transcribed;
     }
 
     // New hint card
