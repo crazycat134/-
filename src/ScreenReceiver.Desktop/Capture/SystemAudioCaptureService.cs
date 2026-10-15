@@ -67,15 +67,15 @@ public sealed class SystemAudioCaptureService : IDisposable
     private void FlushBuffer()
     {
         if (!IsRunning || _assistant.Muted) return;
-        byte[]? wavBytes = null;
         lock (_bufLock)
         {
-            if (_buffer.Length < 8000) return; // too short, probably silence
-            wavBytes = BuildWav(_buffer.ToArray());
+            if (_buffer.Length < 8000)
+            {
+                // Console.WriteLine($"[Audio] Buffer too small: {_buffer.Length} bytes (silence)");
+                return;
+            }
+            var wavBytes = BuildWav(_buffer.ToArray());
             _buffer.SetLength(0);
-        }
-        if (wavBytes != null)
-        {
             Console.WriteLine($"[Audio] Sending {wavBytes.Length} bytes to Whisper...");
             _ = Task.Run(async () =>
             {

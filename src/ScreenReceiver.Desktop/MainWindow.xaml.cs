@@ -50,6 +50,11 @@ public partial class MainWindow : Window
             {
                 _audioCapture = new SystemAudioCaptureService(interviewSvc);
                 _audioCapture.Start();
+                Console.WriteLine("[Main] Audio capture started");
+            }
+            else
+            {
+                Console.WriteLine("[Main] WARNING: InterviewAssistantService not found in DI");
             }
 
             var lanIp = GetLanIpAddress();

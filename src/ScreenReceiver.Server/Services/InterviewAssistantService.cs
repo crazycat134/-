@@ -91,9 +91,19 @@ public sealed class InterviewAssistantService
         if ((DateTime.UtcNow - _lastCall) < TimeSpan.FromSeconds(2))
             return new InterviewResult("", "", "debounced");
 
+        if (!IsConfigured)
+        {
+            Console.WriteLine($"[Interview] Not configured: llmKey={!string.IsNullOrEmpty(_llmApiKey)}, whisperKey={!string.IsNullOrEmpty(_whisperApiKey)}, whisperBase={_whisperBaseUrl}");
+            return new InterviewResult("", "", "未配置WHISPER_API_KEY");
+        }
+
         string transcribed;
         try { transcribed = await TranscribeBytesAsync(wavBytes, "audio/wav", "chunk.wav", ct); }
-        catch (Exception ex) { return new InterviewResult("", "", $"转写失败: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Interview] Whisper error: {ex.Message}");
+            return new InterviewResult("", "", $"转写失败: {ex.Message}");
+        }
 
         if (string.IsNullOrWhiteSpace(transcribed) || transcribed.Trim().Length < 3)
             return new InterviewResult("", "", "");
