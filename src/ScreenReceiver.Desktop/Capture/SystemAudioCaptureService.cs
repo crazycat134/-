@@ -52,7 +52,7 @@ public sealed class SystemAudioCaptureService : IDisposable
         // Flush buffer every 4 seconds
         _flushTimer = new System.Threading.Timer(_ => FlushBuffer(), null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
         IsRunning = true;
-        Debug.WriteLine("[Audio] Started loopback capture");
+        Console.WriteLine($"[Audio] Loopback capture started, format={_capture.WaveFormat}");
     }
 
     private void OnDataAvailable(object? sender, WaveInEventArgs e)
@@ -76,16 +76,11 @@ public sealed class SystemAudioCaptureService : IDisposable
         }
         if (wavBytes != null)
         {
+            Console.WriteLine($"[Audio] Sending {wavBytes.Length} bytes to Whisper...");
             _ = Task.Run(async () =>
             {
-                try
-                {
-                    await _assistant.ProcessWavChunkAsync(wavBytes, _cts.Token);
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[Audio] Process error: {ex.Message}");
-                }
+                try { await _assistant.ProcessWavChunkAsync(wavBytes, _cts.Token); }
+                catch (Exception ex) { Console.WriteLine($"[Audio] Error: {ex.Message}"); }
             });
         }
     }
