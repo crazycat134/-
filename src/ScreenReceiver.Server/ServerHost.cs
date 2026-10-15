@@ -36,10 +36,10 @@ public static class ServerHost
 
         // Vision model for question recognition: OpenAI GPT-4o-mini (supports images)
         var visionKey = Environment.GetEnvironmentVariable("VISION_API_KEY")
-                     ?? Environment.GetEnvironmentVariable("WHISPER_API_KEY") ?? "";
-        var visionModel = Environment.GetEnvironmentVariable("VISION_MODEL") ?? "gpt-4o-mini";
+                     ?? Environment.GetEnvironmentVariable("LLM_API_KEY") ?? "";
+        var visionModel = Environment.GetEnvironmentVariable("VISION_MODEL") ?? "deepseek-flash";
         var visionBase = Environment.GetEnvironmentVariable("VISION_BASE_URL")
-                      ?? "https://api.openai.com/v1";
+                      ?? "https://api.deepseek.com/v1";
         builder.Services.AddSingleton(new LlmClient(new HttpClient(), visionKey, visionModel, visionBase));
 
         // Interview assistant: DeepSeek for text hint generation

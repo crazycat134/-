@@ -74,8 +74,8 @@ public sealed class LlmClient
                     }
                 }
             },
-            max_tokens = 400,
-            temperature = 0.15
+            max_tokens = 800,
+            temperature = 0,
         };
 
         var json = JsonSerializer.Serialize(request);
