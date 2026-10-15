@@ -47,6 +47,8 @@ public static class ServerHost
 
         var app = builder.Build();
 
+        // UseDefaultFiles must come BEFORE UseStaticFiles so "/" serves index.html
+        app.UseDefaultFiles();
         app.UseStaticFiles();
         app.UseSessionAuth();
         app.MapFrameEndpoints();
