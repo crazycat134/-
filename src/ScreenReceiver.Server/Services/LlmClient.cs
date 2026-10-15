@@ -76,6 +76,7 @@ public sealed class LlmClient
             },
             max_tokens = 800,
             temperature = 0,
+            thinking = new { type = "enabled" }
         };
 
         var json = JsonSerializer.Serialize(request);
