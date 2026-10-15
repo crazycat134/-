@@ -13,6 +13,7 @@
             --accent: #58a6ff;
             --green: #3fb950;
             --red: #f85149;
+            --orange: #d29922;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
         body {
@@ -29,17 +30,16 @@
         .status { font-size: 12px; padding: 3px 10px; border-radius: 12px; }
         .status.on { background: rgba(63,185,80,0.15); color: var(--green); }
         .status.off { background: rgba(139,148,158,0.15); color: var(--sub); }
+        .status.muted { background: rgba(210,153,34,0.15); color: var(--orange); }
 
-        .hint-area {
-            flex: 1; padding: 16px 14px; overflow-y: auto;
-        }
+        .hint-area { flex: 1; padding: 16px 14px; overflow-y: auto; }
         .hint-card {
             background: rgba(88,166,255,0.08);
             border-left: 3px solid var(--accent);
             border-radius: 6px; padding: 12px; margin-bottom: 10px;
         }
         .hint-card .q { font-size: 12px; color: var(--sub); margin-bottom: 6px; }
-        .hint-card .a { font-size: 15px; line-height: 1.5; color: var(--text); white-space: pre-wrap; }
+        .hint-card .a { font-size: 16px; line-height: 1.5; color: var(--text); white-space: pre-wrap; font-weight: 500; }
         .placeholder { color: var(--sub); text-align: center; padding: 40px 0; font-size: 14px; }
 
         .bottom {
@@ -52,129 +52,87 @@
             flex: 1; padding: 13px; border: none; border-radius: 8px;
             font-size: 15px; font-weight: 600; cursor: pointer;
         }
-        .btn-start { background: var(--green); color: #fff; }
-        .btn-stop { background: var(--red); color: #fff; }
+        .btn-mute { background: var(--orange); color: #fff; }
+        .btn-mute.active { background: var(--red); }
         .btn-reset { background: #30363d; color: var(--text); flex: 0 0 80px; }
-        .rec-dot {
-            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
-            background: var(--red); margin-right: 5px; animation: blink 1s infinite;
-        }
-        @keyframes blink { 50% { opacity: 0.2; } }
     </style>
 </head>
 <body>
     <div class="topbar">
         <a href="/">← 题目识别</a>
         <span style="font-size:15px;font-weight:600">🎤 面试辅助</span>
-        <span id="recStatus" class="status off">未录制</span>
+        <span id="recStatus" class="status on">监听中</span>
     </div>
 
     <div id="hintArea" class="hint-area">
-        <div class="placeholder">点底部"开始监听"，面试官说话后自动出提示</div>
+        <div class="placeholder">电脑正在捕获系统声音<br>面试官说话后自动出提示</div>
     </div>
 
     <div class="bottom">
         <div class="btn-row">
-            <button id="btnStart" class="btn btn-start">开始监听</button>
+            <button id="btnMute" class="btn btn-mute">🔇 我要说话（暂停监听）</button>
             <button id="btnReset" class="btn btn-reset">重置</button>
         </div>
     </div>
 
     <script>
     const token = new URLSearchParams(location.search).get('token');
-    const btnStart = document.getElementById('btnStart');
+    const btnMute = document.getElementById('btnMute');
     const btnReset = document.getElementById('btnReset');
     const recStatus = document.getElementById('recStatus');
     const hintArea = document.getElementById('hintArea');
+    let lastHint = '';
 
-    let mediaRecorder = null;
-    let recording = false;
-    let chunks = [];
-
-    btnStart.addEventListener('click', async () => {
-        if (recording) { stopRecording(); return; }
+    async function poll() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            chunks = [];
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-            mediaRecorder.onstop = async () => {
-                if (chunks.length > 0) await sendAudio();
-                stream.getTracks().forEach(t => t.stop());
-            };
-            mediaRecorder.start();
-            recording = true;
-            btnStart.textContent = '停止监听';
-            btnStart.className = 'btn btn-stop';
-            recStatus.innerHTML = '<span class="rec-dot"></span>录制中';
+            const res = await fetch('/api/v1/interview/latest' + location.search, {
+                headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+            });
+            const data = await res.json();
+            if (data.hint && data.hint !== lastHint) {
+                lastHint = data.hint;
+                const card = document.createElement('div');
+                card.className = 'hint-card';
+                card.innerHTML = `<div class="q">💬 ${escapeHtml(data.transcribed || '')}</div><div class="a">${escapeHtml(data.hint)}</div>`;
+                hintArea.appendChild(card);
+                hintArea.scrollTop = hintArea.scrollHeight;
+            }
+        } catch (e) {}
+        setTimeout(poll, 2000);
+    }
+    poll();
+
+    btnMute.addEventListener('click', async () => {
+        const res = await fetch('/api/v1/interview/mute' + location.search, {
+            method: 'POST',
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+        });
+        const data = await res.json();
+        if (data.muted) {
+            btnMute.textContent = '🔴 继续监听';
+            btnMute.classList.add('active');
+            recStatus.textContent = '已暂停（你在说话）';
+            recStatus.className = 'status muted';
+        } else {
+            btnMute.textContent = '🔇 我要说话（暂停监听）';
+            btnMute.classList.remove('active');
+            recStatus.textContent = '监听中';
             recStatus.className = 'status on';
-            // Record 4-second chunks
-            setTimeout(() => { if (recording) { mediaRecorder.stop(); } }, 4000);
-        } catch (e) {
-            alert('麦克风权限被拒绝: ' + e.message);
         }
     });
 
-    function stopRecording() {
-        recording = false;
-        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-        btnStart.textContent = '开始监听';
-        btnStart.className = 'btn btn-start';
-        recStatus.textContent = '未录制';
-        recStatus.className = 'status off';
-    }
-
-    async function sendAudio() {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        chunks = [];
-        const fd = new FormData();
-        fd.append('audio', blob, 'chunk.webm');
-        try {
-            const res = await fetch('/api/v1/interview/transcribe', {
-                method: 'POST',
-                headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-                body: fd
-            });
-            const data = await res.json();
-            if (data.hint) {
-                addHint(data.transcribed || '(未识别)', data.hint);
-            }
-        } catch (e) { console.error('upload error', e); }
-        // Auto restart recording
-        if (recording) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-                mediaRecorder.onstop = async () => {
-                    if (chunks.length > 0) await sendAudio();
-                    stream.getTracks().forEach(t => t.stop());
-                };
-                mediaRecorder.start();
-                setTimeout(() => { if (recording) mediaRecorder.stop(); }, 4000);
-            } catch (e) { console.error(e); }
-        }
-    }
-
-    function addHint(q, a) {
-        const card = document.createElement('div');
-        card.className = 'hint-card';
-        card.innerHTML = `<div class="q">💬 ${escapeHtml(q)}</div><div class="a">${escapeHtml(a)}</div>`;
-        hintArea.appendChild(card);
-        hintArea.scrollTop = hintArea.scrollHeight;
-    }
-
-    function escapeHtml(s) {
-        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
     btnReset.addEventListener('click', async () => {
-        await fetch('/api/v1/interview/reset', {
+        await fetch('/api/v1/interview/reset' + location.search, {
             method: 'POST',
             headers: token ? { 'Authorization': 'Bearer ' + token } : {}
         });
         hintArea.innerHTML = '<div class="placeholder">已重置对话历史</div>';
+        lastHint = '';
     });
+
+    function escapeHtml(s) {
+        return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
     </script>
 </body>
 </html>

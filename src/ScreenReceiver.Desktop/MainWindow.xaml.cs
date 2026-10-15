@@ -22,6 +22,7 @@ public partial class MainWindow : Window
     private SessionService? _session;
     private IScreenCaptureService? _capture;
     private System.Threading.Timer? _uploadTimer;
+    private SystemAudioCaptureService? _audioCapture;
     private long _frameId;
     private int _serverPort;
 
@@ -42,6 +43,14 @@ public partial class MainWindow : Window
 
             _app = ServerHost.Build(Array.Empty<string>(), url, _session);
             await _app.StartAsync();
+
+            // Start system audio capture for interview mode
+            var interviewSvc = _app.Services.GetService(typeof(InterviewAssistantService)) as InterviewAssistantService;
+            if (interviewSvc != null)
+            {
+                _audioCapture = new SystemAudioCaptureService(interviewSvc);
+                _audioCapture.Start();
+            }
 
             var lanIp = GetLanIpAddress();
             var pairingUrl = $"http://{lanIp}:{_serverPort}/?token={_session.Token}";
@@ -128,6 +137,7 @@ public partial class MainWindow : Window
         {
             _uploadTimer?.Dispose();
             _capture?.Dispose();
+            _audioCapture?.Dispose();
             if (_app is not null)
             {
                 _app.StopAsync().GetAwaiter().GetResult();

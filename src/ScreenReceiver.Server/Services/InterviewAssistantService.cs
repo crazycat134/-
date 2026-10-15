@@ -21,6 +21,7 @@ public sealed class InterviewAssistantService
     private readonly object _lock = new();
     private readonly List<object> _history = new();
     private DateTime _lastCall = DateTime.MinValue;
+    public bool Muted { get; set; }
 
     private const string InterviewSystemPrompt =
 "你是顶级面试辅导教练，通过手机给候选人实时提示。\n" +
@@ -60,23 +61,27 @@ public sealed class InterviewAssistantService
 
     /// <summary>
     /// Transcribe audio via Whisper, then generate interview hint via LLM.
+    /// Called from the phone (uploads audio chunk).
     /// </summary>
     public async Task<InterviewResult> ProcessAudioAsync(Stream audioStream, string contentType, string fileName, CancellationToken ct = default)
     {
-        // Debounce: ignore calls within 2s of the last one
+        var ms = new MemoryStream();
+        await audioStream.CopyToAsync(ms, ct);
+        return await ProcessWavChunkAsync(ms.ToArray(), ct);
+    }
+
+    /// <summary>
+    /// Process a raw WAV chunk directly (from desktop WASAPI loopback).
+    /// Skips the phone upload step.
+    /// </summary>
+    public async Task<InterviewResult> ProcessWavChunkAsync(byte[] wavBytes, CancellationToken ct = default)
+    {
         if ((DateTime.UtcNow - _lastCall) < TimeSpan.FromSeconds(2))
             return new InterviewResult("", "", "debounced");
 
-        // Step 1: Whisper transcription
         string transcribed;
-        try
-        {
-            transcribed = await TranscribeAsync(audioStream, contentType, fileName, ct);
-        }
-        catch (Exception ex)
-        {
-            return new InterviewResult("", "", $"转写失败: {ex.Message}");
-        }
+        try { transcribed = await TranscribeBytesAsync(wavBytes, "audio/wav", "chunk.wav", ct); }
+        catch (Exception ex) { return new InterviewResult("", "", $"转写失败: {ex.Message}"); }
 
         if (string.IsNullOrWhiteSpace(transcribed) || transcribed.Trim().Length < 3)
             return new InterviewResult("", "", "");
@@ -84,38 +89,40 @@ public sealed class InterviewAssistantService
         transcribed = transcribed.Trim();
         Console.WriteLine($"[Interview] 面试官: {transcribed}");
 
-        // Step 2: Build messages with history
         lock (_lock)
         {
             _history.Add(new { role = "user", content = transcribed });
-            // Keep history bounded (last 10 turns)
             while (_history.Count > 20) _history.RemoveAt(0);
         }
 
-        // Step 3: Call LLM
         string hint;
         try
         {
             hint = await GenerateHintAsync(ct);
-            lock (_lock)
-            {
-                _history.Add(new { role = "assistant", content = hint });
-            }
+            lock (_lock) { _history.Add(new { role = "assistant", content = hint }); }
         }
-        catch (Exception ex)
-        {
-            return new InterviewResult(transcribed, "", $"AI失败: {ex.Message}");
-        }
+        catch (Exception ex) { return new InterviewResult(transcribed, "", $"AI失败: {ex.Message}"); }
 
         _lastCall = DateTime.UtcNow;
+        lock (_lock)
+        {
+            _latestResult = new InterviewResult(transcribed, hint, "ok");
+        }
         Console.WriteLine($"[Interview] 提示: {hint}");
-        return new InterviewResult(transcribed, hint, "ok");
+        return _latestResult;
     }
 
-    private async Task<string> TranscribeAsync(Stream audioStream, string contentType, string fileName, CancellationToken ct)
+    private InterviewResult? _latestResult;
+
+    public InterviewResult GetLatest()
+    {
+        lock (_lock) { return _latestResult ?? new InterviewResult("", "", ""); }
+    }
+
+    private async Task<string> TranscribeBytesAsync(byte[] audioBytes, string contentType, string fileName, CancellationToken ct)
     {
         using var form = new MultipartFormDataContent();
-        var fileContent = new StreamContent(audioStream);
+        var fileContent = new ByteArrayContent(audioBytes);
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         form.Add(fileContent, "file", fileName);
         form.Add(new StringContent(_whisperModel), "model");

@@ -75,10 +75,23 @@ public static class ServerHost
             return Results.Json(result);
         });
 
+        // Phone polls this to get the latest hint from desktop-captured system audio
+        app.MapGet("/api/v1/interview/latest", (InterviewAssistantService svc) =>
+        {
+            var r = svc.GetLatest();
+            return Results.Json(new { transcribed = r.Transcribed, hint = r.Hint, status = r.Status });
+        });
+
         app.MapPost("/api/v1/interview/reset", (InterviewAssistantService svc) =>
         {
             svc.Reset();
             return Results.Ok(new { reset = true });
+        });
+
+        app.MapPost("/api/v1/interview/mute", (InterviewAssistantService svc) =>
+        {
+            svc.Muted = !svc.Muted;
+            return Results.Json(new { muted = svc.Muted });
         });
 
         return app;

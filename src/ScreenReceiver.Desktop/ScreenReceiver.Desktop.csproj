@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\ScreenReceiver.Contracts\ScreenReceiver.Contracts.csproj" />
     <ProjectReference Include="..\ScreenReceiver.Server\ScreenReceiver.Server.csproj" />
+    <PackageReference Include="NAudio" Version="2.2.1" />
   </ItemGroup>
   <ItemGroup>
     <!-- wwwroot lives in the Server project; copy it to the Desktop output so UseStaticFiles can find it -->
