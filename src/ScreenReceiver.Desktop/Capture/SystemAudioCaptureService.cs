@@ -80,7 +80,7 @@ public sealed class SystemAudioCaptureService : IDisposable
             _ = Task.Run(async () =>
             {
                 try { await _assistant.ProcessWavChunkAsync(wavBytes, _cts.Token); }
-                catch (Exception ex) { Console.WriteLine($"[Audio] Error: {ex.Message}"); }
+                catch (Exception ex) { Console.WriteLine($"[Audio] Error: {ex}"); }
             });
         }
     }
