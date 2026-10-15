@@ -87,7 +87,7 @@ public sealed class LlmClient
         req.Content = content;
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
 
         try

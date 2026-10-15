@@ -133,6 +133,7 @@ public static class FrameEndpoints
                     statusCode: StatusCodes.Status500InternalServerError);
 
             var frames = store.GetRecent(3);
+            Console.WriteLine($"[Analyze] Request received, frames={frames.Count}");
             if (frames.Count == 0)
                 return Results.Json(
                     new ApiErrorEnvelope(new ApiError(ErrorCodes.FrameNotAvailable, "No frame available. Start sharing first.")),
