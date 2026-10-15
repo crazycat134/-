@@ -17,6 +17,7 @@ namespace ScreenReceiver.Server.Services;
 public sealed class LlmClient
 {
     private readonly HttpClient _http;
+    private readonly SemaphoreSlim _sem = new(1, 1); // serialize LLM calls to avoid 429
     public string ApiKey { get; }
     public string Model { get; }
     public string BaseUrl { get; }
@@ -37,6 +38,20 @@ public sealed class LlmClient
     {
         if (!IsConfigured)
             throw new InvalidOperationException("LLM_API_KEY environment variable is not set.");
+
+        await _sem.WaitAsync(ct);
+        try
+        {
+            return await AnalyzeImageInternalAsync(jpegBytes, ct);
+        }
+        finally
+        {
+            _sem.Release();
+        }
+    }
+
+    private async Task<string> AnalyzeImageInternalAsync(byte[] jpegBytes, CancellationToken ct)
+    {
 
         var base64 = Convert.ToBase64String(jpegBytes);
         var dataUrl = $"data:image/jpeg;base64,{base64}";

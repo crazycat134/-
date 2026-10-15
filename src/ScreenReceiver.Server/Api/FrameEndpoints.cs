@@ -123,7 +123,7 @@ public static class FrameEndpoints
                 : Results.Ok(latest.Value.meta);
         });
 
-        // POST /api/v1/analyze — send latest frame to vision LLM, return answer text.
+        // POST /api/v1/analyze — stitch recent frames, send to vision LLM, return answer.
         v1.MapPost("/analyze", async (FrameStore store, LlmClient llm) =>
         {
             if (!llm.IsConfigured)
@@ -132,16 +132,20 @@ public static class FrameEndpoints
                         "LLM_API_KEY environment variable is not set on the Windows host.")),
                     statusCode: StatusCodes.Status500InternalServerError);
 
-            var latest = store.GetLatest();
-            if (latest is null)
+            var frames = store.GetRecent(3);
+            if (frames.Count == 0)
                 return Results.Json(
                     new ApiErrorEnvelope(new ApiError(ErrorCodes.FrameNotAvailable, "No frame available. Start sharing first.")),
                     statusCode: StatusCodes.Status404NotFound);
 
             try
             {
-                var answer = await llm.AnalyzeImageAsync(latest.Value.bytes);
-                return Results.Ok(new { answer, frameId = latest.Value.meta.FrameId });
+                // Stitch up to 3 recent frames vertically for multi-screen questions
+                var jpegs = frames.Select(f => f.bytes).ToList();
+                var stitched = ImageStitcher.StitchVertical(jpegs);
+                var answer = await llm.AnalyzeImageAsync(stitched);
+                var last = frames[frames.Count - 1];
+                return Results.Ok(new { answer, frameCount = frames.Count, frameId = last.meta.FrameId });
             }
             catch (Exception ex)
             {
