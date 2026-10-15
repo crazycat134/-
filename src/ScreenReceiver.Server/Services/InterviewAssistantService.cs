@@ -94,7 +94,8 @@ public sealed class InterviewAssistantService
             Console.WriteLine($"[Interview] Whisper error after {sw.ElapsedMilliseconds}ms: {ex.Message}");
             return new InterviewResult("", "", $"转写失败: {ex.Message}");
         }
-        Console.WriteLine($"[Interview] Whisper done in {sw.ElapsedMilliseconds}ms, text='{transcribed?.Substring(0, Math.Min(30, transcribed?.Length ?? 0))}...'");
+        var whisperMs = sw.ElapsedMilliseconds;
+        Console.WriteLine($"[Interview] Whisper done in {whisperMs}ms, text='{transcribed?.Substring(0, Math.Min(30, transcribed?.Length ?? 0))}...'");
 
         if (string.IsNullOrWhiteSpace(transcribed) || transcribed.Trim().Length < 3)
         {
@@ -110,9 +111,11 @@ public sealed class InterviewAssistantService
         }
 
         string hint;
+        var llmSw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             hint = await GenerateHintAsync(transcribed, ct);
+            llmSw.Stop();
             lock (_lock) { _history.Add(new { role = "assistant", content = hint }); }
         }
         catch (Exception ex)
@@ -123,7 +126,7 @@ public sealed class InterviewAssistantService
 
         _lastCall = DateTime.UtcNow;
         lock (_lock) { _latestResult = new InterviewResult(transcribed, hint, "ok"); }
-        Console.WriteLine($"[Interview] TOTAL {sw.ElapsedMilliseconds}ms | Q: {transcribed.Substring(0, Math.Min(20, transcribed.Length))}... | A: {hint?.Substring(0, Math.Min(40, hint?.Length ?? 0))}...");
+        Console.WriteLine($"[Interview] TOTAL {sw.ElapsedMilliseconds}ms (Whisper={whisperMs}ms LLM={llmSw.ElapsedMilliseconds}ms) | Q: {transcribed.Substring(0, Math.Min(20, transcribed.Length))}...");
         return new InterviewResult(transcribed, hint, "ok");
     }
 
