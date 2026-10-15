@@ -137,13 +137,14 @@
             <button id="autoToggleBtn" class="btn btn-secondary hidden">开始自动</button>
         </div>
         <div style="margin-top:8px;text-align:center">
-            <a href="/interview.html${location.search}" style="font-size:13px;color:var(--accent2);text-decoration:none">🎤 切换到面试辅助模式 →</a>
+            <a id="interviewLink" href="/interview.html" style="font-size:13px;color:var(--accent2);text-decoration:none">🎤 切换到面试辅助模式 →</a>
         </div>
         <div id="analyzeStatus" class="analyze-status"></div>
     </div>
 
     <script>
     const token = new URLSearchParams(location.search).get('token');
+    document.getElementById('interviewLink').href = '/interview.html' + location.search;
     const frameImg = document.getElementById('frame');
     const frameTag = document.getElementById('frameTag');
     const connStatus = document.getElementById('connStatus');
