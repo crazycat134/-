@@ -69,26 +69,40 @@ public sealed class LlmClient
 
         var json = JsonSerializer.Serialize(request);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
-        _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
-        _http.DefaultRequestHeaders.Accept.Clear();
-        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        var url = $"{BaseUrl}/chat/completions";
-        using var response = await _http.PostAsync(url, content, ct);
+        // Per-request message handler to avoid thread-unsafe DefaultRequestHeaders under concurrency.
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Content = content;
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-        if (!response.IsSuccessStatusCode)
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cts.Token, ct);
+
+        try
         {
-            var err = await response.Content.ReadAsStringAsync(ct);
-            throw new InvalidOperationException($"LLM API {(int)response.StatusCode}: {err}");
-        }
+            using var response = await _http.SendAsync(req, linked.Token);
 
-        var responseBody = await response.Content.ReadAsStringAsync(ct);
-        using var doc = JsonDocument.Parse(responseBody);
-        var text = doc.RootElement
-            .GetProperty("choices")[0]
-            .GetProperty("message")
-            .GetProperty("content")
-            .GetString();
-        return string.IsNullOrWhiteSpace(text) ? "(无响应)" : text;
+            if (!response.IsSuccessStatusCode)
+            {
+                var err = await response.Content.ReadAsStringAsync(linked.Token);
+                Console.WriteLine($"[LLM] HTTP {(int)response.StatusCode}: {err}");
+                throw new InvalidOperationException($"LLM API {(int)response.StatusCode}: {err}");
+            }
+
+            var responseBody = await response.Content.ReadAsStringAsync(linked.Token);
+            Console.WriteLine($"[LLM] OK, {responseBody.Length} bytes");
+            using var doc = JsonDocument.Parse(responseBody);
+            var text = doc.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString();
+            return string.IsNullOrWhiteSpace(text) ? "(无响应)" : text;
+        }
+        catch (OperationCanceledException) when (cts.IsCancellationRequested)
+        {
+            Console.WriteLine("[LLM] Timeout after 30s");
+            throw new InvalidOperationException("LLM 请求超时（30秒），请重试或检查网络");
+        }
     }
 }

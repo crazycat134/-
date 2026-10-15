@@ -153,7 +153,7 @@
     const analyzeStatus = document.getElementById('analyzeStatus');
     const aiAnswer = document.getElementById('aiAnswer');
 
-    let framePolling = false, autoTimer = null, autoRunning = false;
+    let framePolling = false, autoTimer = null, autoRunning = false, analyzing = false;
     if (!token) { connStatus.textContent = '未授权'; connStatus.className = 'conn err'; }
 
     async function pollFrame() {
