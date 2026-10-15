@@ -41,11 +41,7 @@ public sealed class LlmClient
         var base64 = Convert.ToBase64String(jpegBytes);
         var dataUrl = $"data:image/jpeg;base64,{base64}";
 
-        var systemPrompt =
-"你是银行笔试辅导专家。分析题目截图，直接输出：\n" +
-"【答案】[选项字母或结果]\n" +
-"【解析】[一句话说清为什么选这个]\n" +
-"要求：不要复述题干，不要废话，解析不超过80字；看不清就回\"题目信息缺失\"。";
+        var systemPrompt = QuestionRouterService.Route(jpegBytes);
 
         var request = new
         {
