@@ -16,7 +16,7 @@ public partial class App : Application
     private void OnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
         Console.WriteLine($"[FATAL] UI: {e.Exception}");
-        MessageBox.Show($"发生错误:\n{e.Exception.Message}\n\n{e.Exception.StackTrace}", "错误");
+        System.Windows.MessageBox.Show($"发生错误:\n{e.Exception.Message}\n\n{e.Exception.StackTrace}", "错误");
         e.Handled = true;
     }
 
