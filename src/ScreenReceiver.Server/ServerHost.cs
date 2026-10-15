@@ -34,29 +34,25 @@ public static class ServerHost
         builder.Services.AddSingleton(sessionService);
         builder.Services.AddSingleton<FrameStore>();
 
-        // Vision model for question recognition: OpenAI GPT-4o-mini (supports images)
-        var visionKey = Environment.GetEnvironmentVariable("VISION_API_KEY")
-                     ?? Environment.GetEnvironmentVariable("LLM_API_KEY") ?? "";
+        // All LLM via DeepSeek (no OpenAI)
+        var deepseekKey = Environment.GetEnvironmentVariable("LLM_API_KEY")
+                       ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? "";
+        var deepseekBase = "https://api.deepseek.com/v1";
+
+        // Question recognition: deepseek-flash (vision, supports images)
         var visionModel = Environment.GetEnvironmentVariable("VISION_MODEL") ?? "deepseek-flash";
-        var visionBase = Environment.GetEnvironmentVariable("VISION_BASE_URL")
-                      ?? "https://api.deepseek.com/v1";
-        builder.Services.AddSingleton(new LlmClient(new HttpClient(), visionKey, visionModel, visionBase));
+        builder.Services.AddSingleton(new LlmClient(new HttpClient(), deepseekKey, visionModel, deepseekBase));
 
-        // Interview assistant: DeepSeek for text hint generation
-        var llmKey = Environment.GetEnvironmentVariable("LLM_API_KEY")
-                  ?? Environment.GetEnvironmentVariable("DEEPSEEK_API_KEY") ?? "";
-        var llmModel = Environment.GetEnvironmentVariable("LLM_MODEL")
-                   ?? Environment.GetEnvironmentVariable("DEEPSEEK_MODEL") ?? "deepseek-chat";
-        var llmBase = Environment.GetEnvironmentVariable("LLM_BASE_URL")
-                   ?? "https://api.deepseek.com/v1";
+        // Interview assistant LLM: deepseek-reasoner (top tier reasoning)
+        var llmModel = Environment.GetEnvironmentVariable("LLM_MODEL") ?? "deepseek-reasoner";
 
-        // Interview assistant: Whisper (ASR) + LLM (hint generation)
+        // Whisper ASR: disabled (no OpenAI key). Set WHISPER_API_KEY to re-enable.
         var whisperKey = Environment.GetEnvironmentVariable("WHISPER_API_KEY") ?? "";
         var whisperBase = Environment.GetEnvironmentVariable("WHISPER_BASE_URL")
-                       ?? "https://api.openai.com/v1";
+                       ?? "https://api.deepseek.com/v1";
         var whisperModel = Environment.GetEnvironmentVariable("WHISPER_MODEL") ?? "whisper-1";
         builder.Services.AddSingleton(new InterviewAssistantService(
-            new HttpClient(), llmKey, llmModel, llmBase, whisperKey, whisperBase, whisperModel));
+            new HttpClient(), deepseekKey, llmModel, deepseekBase, whisperKey, whisperBase, whisperModel));
 
         var app = builder.Build();
 
