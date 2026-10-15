@@ -45,6 +45,14 @@ public static class ServerHost
                    ?? "https://api.deepseek.com/v1";
         builder.Services.AddSingleton(new LlmClient(new HttpClient(), apiKey, model, baseUrl));
 
+        // Interview assistant: Whisper (ASR) + LLM (hint generation)
+        var whisperKey = Environment.GetEnvironmentVariable("WHISPER_API_KEY") ?? apiKey;
+        var whisperBase = Environment.GetEnvironmentVariable("WHISPER_BASE_URL")
+                       ?? "https://api.openai.com/v1";
+        var whisperModel = Environment.GetEnvironmentVariable("WHISPER_MODEL") ?? "whisper-1";
+        builder.Services.AddSingleton(new InterviewAssistantService(
+            new HttpClient(), apiKey, model, baseUrl, whisperKey, whisperBase, whisperModel));
+
         var app = builder.Build();
 
         // UseDefaultFiles must come BEFORE UseStaticFiles so "/" serves index.html
@@ -52,6 +60,26 @@ public static class ServerHost
         app.UseStaticFiles();
         app.UseSessionAuth();
         app.MapFrameEndpoints();
+
+        // Interview endpoints
+        app.MapPost("/api/v1/interview/transcribe", async (HttpRequest request, InterviewAssistantService svc) =>
+        {
+            if (!svc.IsConfigured)
+                return Results.Json(new { error = "未配置 WHISPER_API_KEY 或 LLM_API_KEY" }, statusCode: 500);
+            var form = await request.ReadFormAsync();
+            var file = form.Files.GetFile("audio");
+            if (file is null)
+                return Results.Json(new { error = "missing audio file" }, statusCode: 400);
+            using var stream = file.OpenReadStream();
+            var result = await svc.ProcessAudioAsync(stream, file.ContentType, file.FileName);
+            return Results.Json(result);
+        });
+
+        app.MapPost("/api/v1/interview/reset", (InterviewAssistantService svc) =>
+        {
+            svc.Reset();
+            return Results.Ok(new { reset = true });
+        });
 
         return app;
     }
