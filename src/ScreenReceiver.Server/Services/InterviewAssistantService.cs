@@ -93,24 +93,29 @@ public sealed class InterviewAssistantService
 
         if (!IsConfigured)
         {
-            Console.WriteLine($"[Interview] Not configured: llmKey={!string.IsNullOrEmpty(_llmApiKey)}, whisperKey={!string.IsNullOrEmpty(_whisperApiKey)}, whisperBase={_whisperBaseUrl}");
+            Console.WriteLine($"[Interview] Not configured: llmKey={!string.IsNullOrEmpty(_llmApiKey)}, whisperKey={!string.IsNullOrEmpty(_whisperApiKey)}");
             return new InterviewResult("", "", "未配置WHISPER_API_KEY");
         }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        Console.WriteLine($"[Interview] Chunk received ({wavBytes.Length} bytes)");
 
         string transcribed;
         try { transcribed = await TranscribeBytesAsync(wavBytes, "audio/wav", "chunk.wav", ct); }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Interview] Whisper error: {ex.Message}");
+            Console.WriteLine($"[Interview] Whisper error after {sw.ElapsedMilliseconds}ms: {ex.Message}");
             return new InterviewResult("", "", $"转写失败: {ex.Message}");
         }
+        Console.WriteLine($"[Interview] Whisper done in {sw.ElapsedMilliseconds}ms, text='{transcribed?.Substring(0, Math.Min(30, transcribed?.Length ?? 0))}...'");
 
         if (string.IsNullOrWhiteSpace(transcribed) || transcribed.Trim().Length < 3)
+        {
+            Console.WriteLine($"[Interview] Too short, skip. Total {sw.ElapsedMilliseconds}ms");
             return new InterviewResult("", "", "");
+        }
 
         transcribed = transcribed.Trim();
-        Console.WriteLine($"[Interview] 面试官: {transcribed}");
-
         lock (_lock)
         {
             _history.Add(new { role = "user", content = transcribed });
@@ -123,15 +128,16 @@ public sealed class InterviewAssistantService
             hint = await GenerateHintAsync(ct);
             lock (_lock) { _history.Add(new { role = "assistant", content = hint }); }
         }
-        catch (Exception ex) { return new InterviewResult(transcribed, "", $"AI失败: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Interview] LLM error after {sw.ElapsedMilliseconds}ms: {ex.Message}");
+            return new InterviewResult(transcribed, "", $"AI失败: {ex.Message}");
+        }
 
         _lastCall = DateTime.UtcNow;
-        lock (_lock)
-        {
-            _latestResult = new InterviewResult(transcribed, hint, "ok");
-        }
-        Console.WriteLine($"[Interview] 提示: {hint}");
-        return _latestResult;
+        lock (_lock) { _latestResult = new InterviewResult(transcribed, hint, "ok"); }
+        Console.WriteLine($"[Interview] TOTAL {sw.ElapsedMilliseconds}ms | Q: {transcribed.Substring(0, Math.Min(20, transcribed.Length))}... | A: {hint?.Substring(0, Math.Min(40, hint?.Length ?? 0))}...");
+        return new InterviewResult(transcribed, hint, "ok");
     }
 
     private InterviewResult? _latestResult;
