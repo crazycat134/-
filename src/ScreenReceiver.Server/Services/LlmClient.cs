@@ -41,40 +41,37 @@ public sealed class LlmClient
         var base64 = Convert.ToBase64String(jpegBytes);
         var dataUrl = $"data:image/jpeg;base64,{base64}";
 
+        var systemPrompt =
+"你是一位拥有10年经验的银行笔试（行测/综合知识）金牌辅导专家。" +
+"分析用户提供的题目截图，直接输出解析和答案。\n" +
+"规则：\n" +
+"1. 绝对准确：如果题目信息不全、模糊、或不是题目，直接回复\"题目信息缺失，请补充\"。\n" +
+"2. 极简输出：不要说\"好的\"\"根据分析\"等废话，直接按格式输出。\n" +
+"3. 速度优先：解析控制在150字以内，直击考点。\n" +
+"4. 不确定就明说，不要编造答案。\n" +
+"严格按以下格式输出：\n" +
+"【答案】[选项字母或最终结果]\n" +
+"【考点】[如：资料分析-比重计算 / 金融常识-货币政策]\n" +
+"【解析】[用最简练的语言解释为什么选这个，排除其他选项的核心理由]";
+
         var request = new
         {
             model = Model,
             messages = new object[]
             {
+                new { role = "system", content = systemPrompt },
                 new
                 {
                     role = "user",
                     content = new object[]
                     {
-                        new
-                        {
-                            type = "text",
-                            text =
-"你是一个做题助手。用户给你一张题目截图，请严格按以下 Markdown 格式输出，不要额外寒暄：\n\n" +
-"## 📝 题目\n" +
-"(用 1-2 句话概括题目问的是什么，包括关键条件)\n\n" +
-"## ✅ 答案\n" +
-"**(选项字母或最终结果)**\n\n" +
-"## 💡 解析\n" +
-"- 为什么选这个答案：\n" +
-"- 其他选项错在哪里：\n" +
-"- 涉及的知识点：\n\n" +
-"要求：\n" +
-"- 如果截图不是题目（比如是代码、网页、聊天），就如实描述你看到的内容，不要硬编答案。\n" +
-"- 不确定的地方要明说\"不确定\"，不要编造。\n" +
-"- 总长度控制在 300 字以内。"
-                        },
+                        new { type = "text", text = "请分析这道题目截图：" },
                         new { type = "image_url", image_url = new { url = dataUrl } }
                     }
                 }
             },
-            max_tokens = 1500,
-            temperature = 0.2
+            max_tokens = 400,
+            temperature = 0.15
         };
 
         var json = JsonSerializer.Serialize(request);
