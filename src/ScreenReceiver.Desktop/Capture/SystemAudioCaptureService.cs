@@ -85,31 +85,38 @@ public sealed class SystemAudioCaptureService : IDisposable
         }
     }
 
-    /// <summary>Wrap raw PCM bytes with a WAV header so Whisper accepts it.</summary>
+    /// <summary>Wrap raw float bytes as a 16kHz 16-bit mono WAV (Whisper-friendly).</summary>
     private byte[] BuildWav(byte[] pcm)
     {
-        // WASAPI loopback gives us the mix format (usually 32-bit float, 48kHz, stereo).
-        // Whisper handles wav fine; we just need a valid header.
-        var fmt = _capture!.WaveFormat;
+        // WASAPI gives us 32-bit float 48kHz stereo. Whisper wants 16kHz 16-bit mono PCM.
+        var sourceFormat = _capture!.WaveFormat;
+        using var sourceStream = new RawSourceWaveStream(new MemoryStream(pcm), sourceFormat);
+        var targetFormat = new WaveFormat(16000, 16, 1);
+        using var conversion = new WaveFormatConversionStream(targetFormat, sourceStream);
+        using var outMs = new MemoryStream();
+        // Copy converted PCM to a temp buffer
+        var buffer = new byte[targetFormat.AverageBytesPerSecond];
+        int read;
+        while ((read = conversion.Read(buffer, 0, buffer.Length)) > 0)
+            outMs.Write(buffer, 0, read);
+        var converted = outMs.ToArray();
+
         using var ms = new MemoryStream();
         using var bw = new BinaryWriter(ms);
-        // RIFF header
         bw.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
-        bw.Write(36 + pcm.Length);
+        bw.Write(36 + converted.Length);
         bw.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
-        // fmt chunk
         bw.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
         bw.Write(16);
-        bw.Write((short)fmt.Encoding);
-        bw.Write((short)fmt.Channels);
-        bw.Write(fmt.SampleRate);
-        bw.Write(fmt.AverageBytesPerSecond);
-        bw.Write((short)fmt.BlockAlign);
-        bw.Write((short)fmt.BitsPerSample);
-        // data chunk
+        bw.Write((short)1); // PCM
+        bw.Write((short)1); // mono
+        bw.Write(16000);
+        bw.Write(16000 * 2); // bytes/sec
+        bw.Write((short)2);  // block align
+        bw.Write((short)16);  // bits/sample
         bw.Write(System.Text.Encoding.ASCII.GetBytes("data"));
-        bw.Write(pcm.Length);
-        bw.Write(pcm);
+        bw.Write(converted.Length);
+        bw.Write(converted);
         return ms.ToArray();
     }
 
