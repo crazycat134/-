@@ -1,3 +1,4 @@
+using System.IO;
 using ScreenReceiver.Server.Api;
 using ScreenReceiver.Server.Services;
 
@@ -14,9 +15,11 @@ public static class ServerHost
         var builder = WebApplication.CreateBuilder(args);
         builder.WebHost.UseUrls(hostUrl);
 
-        // Pin content root to the exe directory so wwwroot resolves correctly
-        // regardless of the shell's working directory.
-        builder.Host.UseContentRoot(AppContext.BaseDirectory);
+        // Point web root directly at the exe directory's wwwroot (copied by the
+        // Desktop csproj). Do NOT call UseContentRoot here — the .NET SDK already
+        // sets it during `dotnet run`, and changing it again triggers
+        // "The content root/web root changed" exceptions in ASP.NET Core 8+.
+        builder.WebHost.UseWebRoot(Path.Combine(AppContext.BaseDirectory, "wwwroot"));
 
         builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
         {
