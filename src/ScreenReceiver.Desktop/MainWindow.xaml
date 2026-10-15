@@ -1,0 +1,35 @@
+<Window x:Class="ScreenReceiver.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Screen Receiver" Height="380" Width="560"
+        WindowStartupLocation="CenterScreen">
+    <Grid Margin="16">
+        <StackPanel>
+            <TextBlock Text="Screen Receiver" FontSize="20" FontWeight="Bold" Margin="0,0,0,6"/>
+            <TextBlock x:Name="StatusText" Text="Starting server…" Foreground="Gray" Margin="0,0,0,10"/>
+
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Button x:Name="StartButton" Content="Start Sharing"
+                        Click="StartButton_Click" Height="34" Margin="0,0,6,0"
+                        IsEnabled="False"/>
+                <Button x:Name="StopButton" Content="Stop Sharing"
+                        Click="StopButton_Click" Height="34" Grid.Column="1"
+                        IsEnabled="False"/>
+            </Grid>
+
+            <TextBlock Text="iPhone pairing URL (open in Safari):"
+                       Margin="0,0,0,4" FontWeight="SemiBold"/>
+            <TextBox x:Name="UrlBox" IsReadOnly="True" TextWrapping="Wrap"
+                     Text="—" Padding="6" Margin="0,0,0,8"/>
+
+            <TextBlock x:Name="FrameInfoText" Text="" Foreground="Gray" FontSize="11"/>
+
+            <TextBlock Text="Only use on trusted Wi-Fi. Do not expose to public networks."
+                       Foreground="#888" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"/>
+        </StackPanel>
+    </Grid>
+</Window>

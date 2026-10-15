@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ScreenReceiver.Contracts\ScreenReceiver.Contracts.csproj" />
+    <ProjectReference Include="..\ScreenReceiver.Server\ScreenReceiver.Server.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- wwwroot lives in the Server project; copy it to the Desktop output so UseStaticFiles can find it -->
+    <Content Include="..\ScreenReceiver.Server\wwwroot\**\*" CopyToOutputDirectory="PreserveNewest" Link="wwwroot\%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
