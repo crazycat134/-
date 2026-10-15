@@ -5,57 +5,126 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI 面试助手</title>
     <style>
+        :root {
+            --bg: #121212;
+            --card: #1e1e1e;
+            --text: #e8e8e8;
+            --sub: #999;
+            --accent: #4caf50;
+            --accent2: #2196f3;
+            --danger: #d32f2f;
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        body { background: #f2f3f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; color: #1a1a1a; padding-bottom: 30px; }
-        .topbar { background: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e8e8e8; position: sticky; top: 0; z-index: 10; }
-        .brand { font-size: 16px; font-weight: 600; }
-        .conn-status { font-size: 12px; padding: 3px 10px; border-radius: 12px; }
-        .conn-status.connected { background: #e6f7ec; color: #1a7f37; }
-        .conn-status.waiting { background: #fff7e0; color: #8a6d00; }
-        .conn-status.disconnected { background: #fde8e8; color: #b42318; }
-        .controls { background: #fff; margin: 10px; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .mode-row { display: flex; gap: 8px; margin-bottom: 10px; }
-        .mode-btn { flex: 1; padding: 8px; border: 1px solid #ddd; background: #fafafa; border-radius: 8px; font-size: 14px; cursor: pointer; }
-        .mode-btn.active { background: #2563eb; color: #fff; border-color: #2563eb; }
-        .auto-panel { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-        .row-label { font-size: 13px; color: #666; }
-        .auto-panel select { flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
-        .action-row { display: flex; gap: 8px; }
-        .primary-btn, .secondary-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; }
-        .primary-btn { background: #2563eb; color: #fff; }
-        .primary-btn:disabled { background: #93b4f5; }
-        .secondary-btn { background: #f0f0f0; color: #333; }
-        .secondary-btn.stop { background: #dc2626; color: #fff; }
-        .analyze-status { margin-top: 8px; font-size: 12px; color: #666; text-align: center; min-height: 16px; }
-        .preview { background: #fff; margin: 10px; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .preview-header { display: flex; justify-content: space-between; font-size: 13px; color: #666; margin-bottom: 8px; }
-        #frame { width: 100%; border-radius: 8px; background: #000; display: block; }
-        .frame-meta { color: #999; }
-        .ai-card { background: #fff; margin: 10px; padding: 14px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-        .ai-title { font-size: 15px; font-weight: 600; margin-bottom: 10px; }
-        .ai-answer { font-size: 14px; line-height: 1.6; color: #222; }
-        .placeholder { color: #999; text-align: center; padding: 20px 0; }
-        .placeholder.error { color: #b42318; }
-        .md-h1 { font-size: 16px; font-weight: 700; margin: 8px 0 4px; }
-        .md-h2 { font-size: 15px; font-weight: 700; margin: 8px 0 4px; }
-        .md-h3 { font-size: 14px; font-weight: 600; margin: 6px 0 3px; }
-        .md-li { margin-left: 8px; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .topbar {
+            flex: 0 0 auto;
+            padding: 10px 14px;
+            background: var(--card);
+            border-bottom: 1px solid #2c2c2c;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .brand { font-size: 15px; font-weight: 600; }
+        .conn { font-size: 12px; padding: 3px 10px; border-radius: 12px; }
+        .conn.ok { background: rgba(76,175,80,0.15); color: var(--accent); }
+        .conn.wait { background: rgba(255,193,7,0.15); color: #ffc107; }
+        .conn.err { background: rgba(211,47,47,0.15); color: var(--danger); }
+
+        .ai-section {
+            flex: 0 0 auto;
+            background: var(--card);
+            border-bottom: 1px solid #2c2c2c;
+            max-height: 38vh;
+            overflow-y: auto;
+            padding: 12px 14px;
+        }
+        .ai-title { font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+        .ai-content { font-size: 14px; line-height: 1.6; color: var(--text); }
+        .ai-content .placeholder { color: var(--sub); text-align: center; padding: 16px 0; }
+        .ai-content .err { color: var(--danger); }
+        .ai-content b { color: #fff; }
+        .md-h1 { font-size: 15px; font-weight: 700; margin: 8px 0 4px; color: #fff; }
+        .md-h2 { font-size: 14px; font-weight: 700; margin: 6px 0 3px; color: #fff; }
+        .md-li { margin-left: 6px; }
+
+        .video-section {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            min-height: 0;
+            position: relative;
+        }
+        #frame { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+        .frame-tag {
+            position: absolute; top: 8px; right: 8px;
+            font-size: 11px; color: var(--sub);
+            background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px;
+        }
+
+        .control-section {
+            flex: 0 0 auto;
+            background: var(--card);
+            border-top: 1px solid #2c2c2c;
+            padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+        }
+        .mode-row { display: flex; gap: 8px; margin-bottom: 8px; }
+        .mode-btn {
+            flex: 1; padding: 7px; border: 1px solid #333;
+            background: #2a2a2a; color: var(--text);
+            border-radius: 7px; font-size: 13px; cursor: pointer;
+        }
+        .mode-btn.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+        .auto-panel { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; color: var(--sub); }
+        .auto-panel select {
+            flex: 1; padding: 5px; background: #2a2a2a; color: var(--text);
+            border: 1px solid #333; border-radius: 5px; font-size: 13px;
+        }
+        .btn-row { display: flex; gap: 8px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:disabled { background: #3a7a3c; }
+        .btn-secondary { background: #333; color: var(--text); }
+        .btn-danger { background: var(--danger); color: #fff; }
+        .analyze-status { text-align: center; font-size: 12px; color: var(--sub); margin-top: 6px; min-height: 15px; }
         .hidden { display: none !important; }
     </style>
 </head>
 <body>
-    <header class="topbar">
+    <div class="topbar">
         <div class="brand">AI 面试助手</div>
-        <div id="connStatus" class="conn-status disconnected">连接中…</div>
-    </header>
+        <div id="connStatus" class="conn err">连接中…</div>
+    </div>
 
-    <section class="controls">
+    <div class="ai-section">
+        <div class="ai-title">🧠 AI 解析</div>
+        <div id="aiAnswer" class="ai-content">
+            <div class="placeholder">点底部"识别这道题"按钮开始</div>
+        </div>
+    </div>
+
+    <div class="video-section">
+        <img id="frame" alt="screen" />
+        <div id="frameTag" class="frame-tag"></div>
+    </div>
+
+    <div class="control-section">
         <div class="mode-row">
             <button id="modeManual" class="mode-btn active">手动识别</button>
             <button id="modeAuto" class="mode-btn">自动识别</button>
         </div>
         <div id="autoPanel" class="auto-panel hidden">
-            <label class="row-label">间隔</label>
+            <span>间隔</span>
             <select id="intervalSelect">
                 <option value="5">5 秒</option>
                 <option value="10" selected>10 秒</option>
@@ -63,32 +132,17 @@
                 <option value="30">30 秒</option>
             </select>
         </div>
-        <div class="action-row">
-            <button id="analyzeBtn" class="primary-btn">📷 识别这道题</button>
-            <button id="autoToggleBtn" class="secondary-btn hidden">开始自动</button>
+        <div class="btn-row">
+            <button id="analyzeBtn" class="btn btn-primary">📷 识别这道题</button>
+            <button id="autoToggleBtn" class="btn btn-secondary hidden">开始自动</button>
         </div>
         <div id="analyzeStatus" class="analyze-status"></div>
-    </section>
-
-    <section class="preview">
-        <div class="preview-header">
-            <span>实时画面</span>
-            <span id="frameMeta" class="frame-meta"></span>
-        </div>
-        <img id="frame" alt="screen" />
-    </section>
-
-    <section class="ai-card">
-        <div class="ai-title">🤖 AI 助手</div>
-        <div id="aiAnswer" class="ai-answer">
-            <div class="placeholder">识别结果会显示在这里</div>
-        </div>
-    </section>
+    </div>
 
     <script>
     const token = new URLSearchParams(location.search).get('token');
     const frameImg = document.getElementById('frame');
-    const frameMeta = document.getElementById('frameMeta');
+    const frameTag = document.getElementById('frameTag');
     const connStatus = document.getElementById('connStatus');
     const analyzeBtn = document.getElementById('analyzeBtn');
     const autoToggleBtn = document.getElementById('autoToggleBtn');
@@ -99,14 +153,8 @@
     const analyzeStatus = document.getElementById('analyzeStatus');
     const aiAnswer = document.getElementById('aiAnswer');
 
-    let framePolling = false;
-    let autoTimer = null;
-    let autoRunning = false;
-
-    if (!token) {
-        connStatus.textContent = '未授权';
-        connStatus.className = 'conn-status disconnected';
-    }
+    let framePolling = false, autoTimer = null, autoRunning = false;
+    if (!token) { connStatus.textContent = '未授权'; connStatus.className = 'conn err'; }
 
     async function pollFrame() {
         if (framePolling) return;
@@ -116,64 +164,55 @@
                 headers: token ? { 'Authorization': 'Bearer ' + token } : {}
             });
             if (res.ok) {
-                const blob = await res.blob();
-                frameImg.src = URL.createObjectURL(blob);
+                frameImg.src = URL.createObjectURL(await res.blob());
                 connStatus.textContent = '● 已连接';
-                connStatus.className = 'conn-status connected';
+                connStatus.className = 'conn ok';
                 const fid = res.headers.get('X-Frame-Id');
-                if (fid) frameMeta.textContent = 'Frame #' + fid;
+                if (fid) frameTag.textContent = 'Frame #' + fid;
             } else if (res.status === 404) {
                 connStatus.textContent = '等待画面…';
-                connStatus.className = 'conn-status waiting';
+                connStatus.className = 'conn wait';
             } else if (res.status === 401) {
                 connStatus.textContent = '未授权';
-                connStatus.className = 'conn-status disconnected';
+                connStatus.className = 'conn err';
             }
         } catch (e) {
             connStatus.textContent = '连接断开';
-            connStatus.className = 'conn-status disconnected';
-        } finally {
-            framePolling = false;
-            setTimeout(pollFrame, 1000);
-        }
+            connStatus.className = 'conn err';
+        } finally { framePolling = false; setTimeout(pollFrame, 1000); }
     }
     pollFrame();
 
     modeManualBtn.addEventListener('click', () => setMode('manual'));
     modeAutoBtn.addEventListener('click', () => setMode('auto'));
-    function setMode(mode) {
-        if (mode === 'manual') {
-            modeManualBtn.classList.add('active');
-            modeAutoBtn.classList.remove('active');
+    function setMode(m) {
+        if (m === 'manual') {
+            modeManualBtn.classList.add('active'); modeAutoBtn.classList.remove('active');
             autoPanel.classList.add('hidden');
-            analyzeBtn.classList.remove('hidden');
-            autoToggleBtn.classList.add('hidden');
+            analyzeBtn.classList.remove('hidden'); autoToggleBtn.classList.add('hidden');
             stopAuto();
         } else {
-            modeAutoBtn.classList.add('active');
-            modeManualBtn.classList.remove('active');
+            modeAutoBtn.classList.add('active'); modeManualBtn.classList.remove('active');
             autoPanel.classList.remove('hidden');
-            analyzeBtn.classList.add('hidden');
-            autoToggleBtn.classList.remove('hidden');
+            analyzeBtn.classList.add('hidden'); autoToggleBtn.classList.remove('hidden');
         }
     }
 
-    analyzeBtn.addEventListener('click', () => runAnalysis('手动识别中…'));
-    autoToggleBtn.addEventListener('click', () => { autoRunning ? stopAuto() : startAuto(); });
-
+    analyzeBtn.addEventListener('click', () => runAnalysis('识别中…'));
+    autoToggleBtn.addEventListener('click', () => autoRunning ? stopAuto() : startAuto());
     function startAuto() {
-        const interval = parseInt(intervalSelect.value) * 1000;
+        const ms = parseInt(intervalSelect.value) * 1000;
         autoRunning = true;
         autoToggleBtn.textContent = '停止自动';
-        autoToggleBtn.classList.add('stop');
+        autoToggleBtn.classList.remove('btn-secondary'); autoToggleBtn.classList.add('btn-danger');
         runAnalysis('自动识别中…');
-        autoTimer = setInterval(() => runAnalysis('自动识别中…'), interval);
+        autoTimer = setInterval(() => runAnalysis('自动识别中…'), ms);
     }
     function stopAuto() {
         autoRunning = false;
         if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
         autoToggleBtn.textContent = '开始自动';
-        autoToggleBtn.classList.remove('stop');
+        autoToggleBtn.classList.add('btn-secondary'); autoToggleBtn.classList.remove('btn-danger');
     }
 
     async function runAnalysis(statusText) {
@@ -190,22 +229,20 @@
                 aiAnswer.innerHTML = renderMarkdown(data.answer || '(无结果)');
                 analyzeStatus.textContent = '✅ 识别完成';
             } else {
-                aiAnswer.innerHTML = '<div class="placeholder error">❌ ' + (data?.error?.message || '识别失败') + '</div>';
+                aiAnswer.innerHTML = '<div class="placeholder err">❌ ' + (data?.error?.message || '识别失败') + '</div>';
                 analyzeStatus.textContent = '识别失败';
             }
         } catch (e) {
             analyzeStatus.textContent = '网络错误: ' + e.message;
-        } finally {
-            analyzeBtn.disabled = false;
-        }
+        } finally { analyzeBtn.disabled = false; }
     }
 
     function renderMarkdown(text) {
         return text
             .replace(/&/g, '&amp;').replace(/</g, '&lt;')
             .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-            .replace(/^### (.+)$/gm, '<div class="md-h3">$1</div>')
-            .replace(/^## (.+)$/gm, '<div class="md-h2">$1</div>')
+            .replace(/^### (.+)$/gm, '<div class="md-h2">$1</div>')
+            .replace(/^## (.+)$/gm, '<div class="md-h1">$1</div>')
             .replace(/^# (.+)$/gm, '<div class="md-h1">$1</div>')
             .replace(/^- (.+)$/gm, '<div class="md-li">• $1</div>')
             .replace(/\n/g, '<br>');
