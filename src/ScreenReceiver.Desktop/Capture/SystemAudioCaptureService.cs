@@ -50,7 +50,7 @@ public sealed class SystemAudioCaptureService : IDisposable
 
         _capture.StartRecording();
         // Flush buffer every 4 seconds
-        _flushTimer = new Timer(_ => FlushBuffer(), null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
+        _flushTimer = new System.Threading.Timer(_ => FlushBuffer(), null, TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(4));
         IsRunning = true;
         Debug.WriteLine("[Audio] Started loopback capture");
     }
