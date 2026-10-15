@@ -152,7 +152,8 @@ public sealed class InterviewAssistantService
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         form.Add(fileContent, "file", fileName);
         form.Add(new StringContent(_whisperModel), "model");
-        form.Add(new StringContent("ja"), "language");
+        // Let Whisper auto-detect language (ja/zh/en mixed in interview)
+        // form.Add(new StringContent("ja"), "language");
 
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{_whisperBaseUrl}/audio/transcriptions")
         {
