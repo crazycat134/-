@@ -12,14 +12,18 @@ public static class ServerHost
 {
     public static WebApplication Build(string[] args, string hostUrl, SessionService? session = null)
     {
-        var builder = WebApplication.CreateBuilder(args);
+        // Specify ContentRoot and WebRoot up front via WebApplicationOptions.
+        // Calling UseContentRoot/UseWebRoot AFTER CreateBuilder triggers
+        // "The content root/web root changed" in ASP.NET Core 8+.
+        var webRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+        var options = new WebApplicationOptions
+        {
+            Args = args,
+            ContentRootPath = AppContext.BaseDirectory,
+            WebRootPath = Directory.Exists(webRootPath) ? webRootPath : null
+        };
+        var builder = WebApplication.CreateBuilder(options);
         builder.WebHost.UseUrls(hostUrl);
-
-        // Point web root directly at the exe directory's wwwroot (copied by the
-        // Desktop csproj). Do NOT call UseContentRoot here — the .NET SDK already
-        // sets it during `dotnet run`, and changing it again triggers
-        // "The content root/web root changed" exceptions in ASP.NET Core 8+.
-        builder.WebHost.UseWebRoot(Path.Combine(AppContext.BaseDirectory, "wwwroot"));
 
         builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(o =>
         {
