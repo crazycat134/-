@@ -85,39 +85,58 @@ public sealed class SystemAudioCaptureService : IDisposable
         }
     }
 
-    /// <summary>Wrap raw float bytes as a 16kHz 16-bit mono WAV (Whisper-friendly).</summary>
+    /// <summary>Manually convert WASAPI 32-bit float 48kHz stereo to 16kHz 16-bit mono PCM WAV.</summary>
     private byte[] BuildWav(byte[] pcm)
     {
-        // WASAPI gives us 32-bit float 48kHz stereo. Whisper wants 16kHz 16-bit mono PCM.
-        var sourceFormat = _capture!.WaveFormat;
-        using var sourceStream = new RawSourceWaveStream(new MemoryStream(pcm), sourceFormat);
-        var targetFormat = new WaveFormat(16000, 16, 1);
-        using var conversion = new WaveFormatConversionStream(targetFormat, sourceStream);
-        using var outMs = new MemoryStream();
-        // Copy converted PCM to a temp buffer
-        var buffer = new byte[targetFormat.AverageBytesPerSecond];
-        int read;
-        while ((read = conversion.Read(buffer, 0, buffer.Length)) > 0)
-            outMs.Write(buffer, 0, read);
-        var converted = outMs.ToArray();
+        var srcFormat = _capture!.WaveFormat;
+        int srcChannels = srcFormat.Channels;       // 2
+        int srcRate = srcFormat.SampleRate;          // 48000
+        int targetRate = 16000;
+        int sampleCount = pcm.Length / 4;           // 4 bytes per float
+        int step = srcRate / targetRate;            // 3 (48000/16000)
 
-        using var ms = new MemoryStream();
-        using var bw = new BinaryWriter(ms);
+        using var outMs = new MemoryStream();
+        using var bw = new BinaryWriter(outMs);
+
+        // Write WAV header (filled in later)
         bw.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
-        bw.Write(36 + converted.Length);
+        bw.Write(0); // size placeholder
         bw.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
         bw.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
         bw.Write(16);
         bw.Write((short)1); // PCM
         bw.Write((short)1); // mono
-        bw.Write(16000);
-        bw.Write(16000 * 2); // bytes/sec
-        bw.Write((short)2);  // block align
-        bw.Write((short)16);  // bits/sample
+        bw.Write(targetRate);
+        bw.Write(targetRate * 2); // bytes/sec (16-bit mono)
+        bw.Write((short)2);
+        bw.Write((short)16);
         bw.Write(System.Text.Encoding.ASCII.GetBytes("data"));
-        bw.Write(converted.Length);
-        bw.Write(converted);
-        return ms.ToArray();
+        bw.Write(0); // size placeholder
+
+        long dataStart = outMs.Position;
+
+        // Convert float samples to 16-bit, downmix stereo to mono, downsample
+        for (int i = 0; i < sampleCount; i += step * srcChannels)
+        {
+            // Average channels
+            float sum = 0;
+            for (int ch = 0; ch < srcChannels && i + ch < sampleCount; ch++)
+            {
+                sum += BitConverter.ToSingle(pcm, (i + ch) * 4);
+            }
+            float mono = sum / srcChannels;
+            short s = (short)(mono * 32767);
+            bw.Write(s);
+        }
+
+        long dataSize = outMs.Position - dataStart;
+        outMs.Position = 4;
+        bw.Write((int)(outMs.Length - 8));
+        outMs.Position = dataStart - 4;
+        bw.Write((int)dataSize);
+        outMs.Position = outMs.Length;
+
+        return outMs.ToArray();
     }
 
     public void Stop()
