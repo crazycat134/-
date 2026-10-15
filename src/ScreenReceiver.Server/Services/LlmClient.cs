@@ -69,6 +69,7 @@ public sealed class LlmClient
 
         var json = JsonSerializer.Serialize(request);
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
+        var url = $"{BaseUrl}/chat/completions";
 
         // Per-request message handler to avoid thread-unsafe DefaultRequestHeaders under concurrency.
         using var req = new HttpRequestMessage(HttpMethod.Post, url);

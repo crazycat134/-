@@ -217,12 +217,15 @@
 
     async function runAnalysis(statusText) {
         if (!token) { analyzeStatus.textContent = '未授权'; return; }
+        if (analyzing) { analyzeStatus.textContent = '上次还在识别中…'; return; }
+        analyzing = true;
         analyzeStatus.textContent = statusText;
         analyzeBtn.disabled = true;
         try {
             const res = await fetch('/api/v1/analyze', {
                 method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + token },
+                signal: AbortSignal.timeout(35000)
             });
             const data = await res.json();
             if (res.ok) {
@@ -233,8 +236,8 @@
                 analyzeStatus.textContent = '识别失败';
             }
         } catch (e) {
-            analyzeStatus.textContent = '网络错误: ' + e.message;
-        } finally { analyzeBtn.disabled = false; }
+            analyzeStatus.textContent = '错误: ' + e.message;
+        } finally { analyzing = false; analyzeBtn.disabled = false; }
     }
 
     function renderMarkdown(text) {
