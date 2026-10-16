@@ -1,39 +1,5 @@
-# Build results
+﻿app_log.txt
+app_err.txt
+analyze_history.jsonl
 bin/
 obj/
-[Dd]ebug/
-[Rr]elease/
-*.user
-*.suo
-
-# Visual Studio
-.vs/
-*.userprefs
-*.sln.docstates
-
-# .NET
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# Rider / VS Code
-.idea/
-.vscode/
-
-# OS
-Thumbs.db
-.DS_Store
-
-# Logs
-*.log
-logs/
-
-# Secrets / local config
-appsettings.*.local.json
-.env
-.env.*
-
-# Test logs
-run_*.txt
-
-*.bat
