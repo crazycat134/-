@@ -123,8 +123,8 @@ public static class FrameEndpoints
                 : Results.Ok(latest.Value.meta);
         });
 
-        // POST /api/v1/analyze — stitch recent frames, send to vision LLM, return answer.
-        v1.MapPost("/analyze", async (FrameStore store, LlmClient llm) =>
+        // POST /api/v1/analyze — analyze a specific frame by frameId.
+        v1.MapPost("/analyze", async (FrameStore store, LlmClient llm, HttpRequest request) =>
         {
             if (!llm.IsConfigured)
                 return Results.Json(
@@ -132,37 +132,43 @@ public static class FrameEndpoints
                         "LLM_API_KEY environment variable is not set on the Windows host.")),
                     statusCode: StatusCodes.Status500InternalServerError);
 
-            var frames = store.GetRecent(3);
-            Console.WriteLine($"[Analyze] Request received, frames={frames.Count}");
+            // Read frameId from query or body
+            long frameId = 0;
+            if (long.TryParse(request.Query["frameId"], out var qfid)) frameId = qfid;
+
+            Console.WriteLine($"[Analyze] Request received, frameId={frameId}");
+
+            var frames = store.GetRecent(1);
             if (frames.Count == 0)
                 return Results.Json(
-                    new ApiErrorEnvelope(new ApiError(ErrorCodes.FrameNotAvailable, "No frame available. Start sharing first.")),
+                    new ApiErrorEnvelope(new ApiError(ErrorCodes.FrameNotAvailable, "No frame available.")),
                     statusCode: StatusCodes.Status404NotFound);
+
+            // Use latest frame if no frameId specified
+            var frame = frames[0];
+            if (frameId == 0) frameId = frame.meta.FrameId;
 
             try
             {
-                var jpegs = frames.Select(f => f.bytes).ToList();
-                var stitched = ImageStitcher.StitchVertical(jpegs);
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                var answer = await llm.AnalyzeImageAsync(stitched);
+                var answer = await llm.AnalyzeImageAsync(frame.bytes);
                 sw.Stop();
-                var last = frames[frames.Count - 1];
 
-                // Log to file
                 var logEntry = System.Text.Json.JsonSerializer.Serialize(new
                 {
                     time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
-                    frameId = last.meta.FrameId,
+                    frameId,
                     elapsedMs = sw.ElapsedMilliseconds,
                     answer
                 });
                 System.IO.File.AppendAllText("analyze_history.jsonl", logEntry + "\n");
-                Console.WriteLine($"[Analyze] Done in {sw.ElapsedMilliseconds}ms, frame={last.meta.FrameId}");
+                Console.WriteLine($"[Analyze] Done in {sw.ElapsedMilliseconds}ms, frame={frameId}");
 
-                return Results.Ok(new { answer, frameCount = frames.Count, frameId = last.meta.FrameId });
+                return Results.Ok(new { answer, frameId });
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[Analyze] Error: {ex.Message}");
                 return Results.Json(
                     new ApiErrorEnvelope(new ApiError("ANALYSIS_FAILED", ex.Message)),
                     statusCode: StatusCodes.Status502BadGateway);

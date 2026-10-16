@@ -215,9 +215,11 @@
         autoToggleBtn.classList.add('btn-secondary'); autoToggleBtn.classList.remove('btn-danger');
     }
 
+    let requestSeq = 0;
     async function runAnalysis(statusText) {
         if (!token) { analyzeStatus.textContent = '未授权'; return; }
         if (analyzing) { analyzeStatus.textContent = '上次还在识别中…'; return; }
+        const seq = ++requestSeq;
         analyzing = true;
         analyzeStatus.textContent = statusText;
         analyzeBtn.disabled = true;
@@ -228,6 +230,7 @@
                 signal: AbortSignal.timeout(35000)
             });
             const data = await res.json();
+            if (seq !== requestSeq) return; // old response, discard
             if (res.ok) {
                 aiAnswer.innerHTML = renderMarkdown(data.answer || '(无结果)');
                 analyzeStatus.textContent = '✅ 识别完成';
@@ -236,8 +239,8 @@
                 analyzeStatus.textContent = '识别失败';
             }
         } catch (e) {
-            analyzeStatus.textContent = '错误: ' + e.message;
-        } finally { analyzing = false; analyzeBtn.disabled = false; }
+            if (seq === requestSeq) analyzeStatus.textContent = '错误: ' + e.message;
+        } finally { if (seq === requestSeq) { analyzing = false; analyzeBtn.disabled = false; } }
     }
 
     function renderMarkdown(text) {

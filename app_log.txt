@@ -1,5 +1,5 @@
 info: Microsoft.Hosting.Lifetime[14]
-      Now listening on: http://0.0.0.0:58221
+      Now listening on: http://0.0.0.0:50830
 info: Microsoft.Hosting.Lifetime[0]
       Application started. Press Ctrl+C to shut down.
 info: Microsoft.Hosting.Lifetime[0]
